@@ -1,61 +1,61 @@
-1) **Total Sales by Product**
-SELECT
-    p.ProductID,
-    p.Name AS ProductName,
-    SUM(sf.Quantity * sf.Price) AS TotalSalesAmount
-FROM
-    Product_Dim p
-JOIN
-    Sales_Fact sf ON p.ProductID = sf.ProductID
-GROUP BY
-    p.ProductID, p.Name
-ORDER BY
-    TotalSalesAmount DESC;
+-- 1) Total Sales by Product
 
-2) **Sales by Month and Channel** 
+SELECT
+    p.Name,
+    SUM(f.Price * f.Quantity) AS TotalSales
+FROM
+    Sales_Fact f
+    JOIN Product_Dim p ON f.ProductID = p.ProductID
+GROUP BY
+    p.Name
+ORDER BY
+    TotalSales DESC;
+
+-- 2) Sales by Month and Channel
+
 SELECT
     EXTRACT(MONTH FROM d.Date) AS Month,
     r.Channel,
-    SUM(sf.Quantity) AS TotalQuantity,
-    SUM(sf.Quantity * sf.Price) AS TotalSalesAmount
+    SUM(f.Price * f.Quantity) AS TotalSales,
+    SUM(f.Quantity) AS TotalQuantity
 FROM
-    Sales_Fact sf
-JOIN
-    Date_Dim d ON sf.Date = d.Date
-JOIN
-    Retailer_Dim r ON sf.RetailerID = r.RetailerID
+    Sales_Fact f
+    JOIN Date_Dim d ON f.Date = d.Date
+    JOIN Retailer_Dim r ON f.RetailerID = r.RetailerID
 GROUP BY
-    EXTRACT(MONTH FROM d.Date), r.Channel
+    EXTRACT(MONTH FROM d.Date),
+    r.Channel
 ORDER BY
-    Month, Channel;
+    Month,
+    Channel;
 
+-- 3) Top Selling Product by Category for Each Retailer
 
-3)**Top Selling Product by Category for Each Retailer**
-
-WITH RankedProducts AS (
+WITH ranking AS (
     SELECT
-        p.ProductID,
-        p.Name AS ProductName,
-        p.Category,
         r.Name AS RetailerName,
-        SUM(sf.Quantity * sf.Price) AS TotalSalesAmount,
-        ROW_NUMBER() OVER (PARTITION BY r.RetailerID, p.Category ORDER BY SUM(sf.Quantity * sf.Price) DESC) AS Rank
+        p.Category,
+        p.Name AS ProductName,
+        SUM(f.Price * f.Quantity) AS TotalSales,
+        RANK() OVER (PARTITION BY r.Name, p.Category ORDER BY SUM(f.Price * f.Quantity) DESC) AS Rank
     FROM
-        Product_Dim p
-    JOIN
-        Sales_Fact sf ON p.ProductID = sf.ProductID
-    JOIN
-        Retailer_Dim r ON sf.RetailerID = r.RetailerID
+        Sales_Fact f
+        JOIN Product_Dim p ON f.ProductID = p.ProductID
+        JOIN Retailer_Dim r ON f.RetailerID = r.RetailerID
     GROUP BY
-        p.ProductID, p.Name, p.Category, r.Name
+        r.Name,
+        p.Category,
+        p.Name
 )
 SELECT
-    ProductID,
-    ProductName,
-    Category,
     RetailerName,
-    TotalSalesAmount
+    Category,
+    ProductName,
+    TotalSales
 FROM
-    RankedProducts
+    ranking
 WHERE
-    Rank = 1;
+    Rank = 1
+ORDER BY
+    RetailerName,
+    Category;
